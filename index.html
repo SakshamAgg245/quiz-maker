@@ -1,1 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic AI Quiz Generator</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --success: #10b981;
+            --error: #ef4444;
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            transition: all 0.3s ease;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Setup Screen */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Quiz Screen */
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .timer {
+            font-weight: bold;
+            color: var(--error);
+            font-size: 18px;
+        }
+
+        .question {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .option-btn {
+            background-color: #f9fafb;
+            color: var(--text);
+            border: 2px solid #e5e7eb;
+            text-align: left;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .option-btn:hover:not([disabled]) {
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .option-btn.correct {
+            background-color: #ecfdf5;
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .option-btn.wrong {
+            background-color: #fef2f2;
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        /* Results Screen */
+        .results {
+            text-align: center;
+        }
+
+        .score-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- SCREEN 1: QUIZ SETUP -->
+        <div id="setup-screen">
+            <h1>Quiz Generator</h1>
+            <div class="input-group">
+                <label for="topic">Enter Quiz Topic:</label>
+                <input type="text" id="topic" placeholder="e.g., Space, World War II, Pop Culture, JavaScript..." required>
+            </div>
+            <div class="input-group">
+                <label for="difficulty">Difficulty:</label>
+                <select id="difficulty">
+                    <option value="Easy">Easy</option>
+                    <option value="Medium" selected>Medium</option>
+                    <option value="Hard">Hard</option>
+                </select>
+            </div>
+            <button id="start-btn">Generate & Start Quiz</button>
+        </div>
+
+        <!-- SCREEN 2: ACTIVE QUIZ -->
+        <div id="quiz-screen" class="hidden">
+            <div class="quiz-header">
+                <span id="progress">Question 1 of 5</span>
+                <span id="timer" class="timer">Time: 15s</span>
+            </div>
+            <div id="question-text" class="question">Loading question...</div>
+            <div id="options" class="options-container">
+                <!-- Buttons will be injected here dynamically -->
+            </div>
+            <button id="next-btn" class="hidden">Next Question</button>
+        </div>
+
+        <!-- SCREEN 3: RESULTS -->
+        <div id="results-screen" class="hidden">
+            <div class="results">
+                <h1>Quiz Completed!</h1>
+                <p>You generated a quiz on: <strong id="result-topic">Topic</strong></p>
+                <div class="score-display"><span id="score">0</span> / 5</div>
+                <p id="feedback-msg" style="margin-bottom: 20px;"></p>
+                <button id="restart-btn">Create Another Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Local database to simulate custom dynamic quiz generation based on keywords
+        const quizBank = {
+            javascript: [
+                { q: "Which keyword is used to define a constant variable in JS?", o: ["var", "let", "const", "constant"], a: 2 },
+                { q: "What does DOM stand for?", o: ["Document Object Model", "Data Object Management", "Digital Optimal Matrix", "Document Order Model"], a: 0 },
+                { q: "Which array method adds an element to the end of an array?", o: ["pop()", "push()", "shift()", "unshift()"], a: 1 },
+                { q: "Is JavaScript single-threaded or multi-threaded?", o: ["Single-threaded", "Multi-threaded", "It depends on the browser", "None of the above"], a: 0 },
+                { q: "Which company originally developed JavaScript?", o: ["Microsoft", "Google", "Netscape", "Oracle"], a: 2 }
+            ],
+            space: [
+                { q: "Which planet is known as the Red Planet?", o: ["Venus", "Mars", "Jupiter", "Saturn"], a: 1 },
+                { q: "What is the hottest planet in our solar system?", o: ["Mercury", "Venus", "Mars", "Jupiter"], a: 1 },
+                { q: "What galaxy is Earth located in?", o: ["Andromeda", "Milky Way", "Triangulum", "Whirlpool"], a: 1 },
+                { q: "Approximately how long does it take light from the Sun to reach Earth?", o: ["8 seconds", "8 minutes", "8 hours", "8 days"], a: 1 },
+                { q: "What is the largest moon of Saturn?", o: ["Titan", "Europa", "Ganymede", "Phobos"], a: 0 }
+            ],
+            history: [
+                { q: "In which year did World War II end?", o: ["1918", "1939", "1945", "1950"], a: 2 },
+                { q: "Who was the first President of the United States?", o: ["Thomas Jefferson", "Abraham Lincoln", "George Washington", "John Adams"], a: 2 },
+                { q: "Which ancient civilization built the Pyramids of Giza?", o: ["Romans", "Aztecs", "Egyptians", "Greeks"], a: 2 },
+                { q: "What was the name of the ship that brought the Pilgrims to America in 1620?", o: ["Santa Maria", "Mayflower", "Endeavour", "Beagle"], a: 1 },
+                { q: "Who was known as the 'Iron Lady'?", o: ["Queen Elizabeth", "Margaret Thatcher", "Angela Merkel", "Indira Gandhi"], a: 1 }
+            ]
+        };
+
+        // Fallback generator for unlisted user topics
+        function generateProceduralQuestions(topic, difficulty) {
+            return [
+                { q: `Which of the following best describes a core concept of ${topic}?`, o: [`The foundational rules of ${topic}`, `An optional feature of ${topic}`, `A historical alternative to ${topic}`, `None of the above`], a: 0 },
+                { q: `When studying ${topic}, a ${difficulty} level approach usually focuses on what?`, o: ["Ignoring basic terminology", "Mastering key concepts and frameworks", "Skipping straight to advanced anomalies", "Purely memorizing dates"], a: 1 },
+                { q: `What is a common misconception about ${topic}?`, o: ["That it is completely unrelated to modern science", "That it requires absolutely no practice", "That it scales easily without effort", "All of the above"], a: 3 },
+                { q: `Which tool or method is most heavily utilized when working with ${topic}?`, o: ["Standard analytical frameworks", "Random guessing", "Ignoring historical documentation", "Outdated 19th-century systems"], a: 0 },
+                { q: `Improving your knowledge in ${topic} dynamically enhances your skills in which area?`, o: ["Critical thinking & problem solving", "Unrelated fields of study", "Nothing, it's just trivia", "Manual data entry"], a: 0 }
+            ];
+        }
+
+        // State variables
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let timerInterval;
+        let timeLeft = 15;
+        let trackingTopic = "";
+
+        // DOM elements
+        const setupScreen = document.getElementById('setup-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        
+        const topicInput = document.getElementById('topic');
+        const difficultyInput = document.getElementById('difficulty');
+        const startBtn = document.getElementById('start-btn');
+        
+        const progressText = document.getElementById('progress');
+        const timerText = document.getElementById('timer');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options');
+        const nextBtn = document.getElementById('next-btn');
+
+        const scoreDisplay = document.getElementById('score');
+        const resultTopic = document.getElementById('result-topic');
+        const feedbackMsg = document.getElementById('feedback-msg');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Event listeners
+        startBtn.addEventListener('click', startQuiz);
+        nextBtn.addEventListener('click', loadNextQuestion);
+        restartBtn.addEventListener('click', resetToSetup);
+
+        async function startQuiz() {
+            const rawTopic = topicInput.value.trim();
+            if (!rawTopic) {
+                alert("Please enter a topic!");
+                return;
+            }
+
+            trackingTopic = rawTopic;
+            const difficulty = difficultyInput.value;
+
+            // Show visual loading state on button
+            startBtn.innerText = "AI is thinking... Please wait...";
+            startBtn.disabled = true;
+
+            try {
+                // Call your local backend API
+                const response = await fetch('http://localhost:3000/api/generate-quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: rawTopic, difficulty: difficulty })
+                });
+
+                if (!response.ok) throw new Error('Network error');
+
+                // Capture true AI structured arrays
+                currentQuestions = await response.json();
+
+                // UI Transitions
+                setupScreen.classList.add('hidden');
+                quizScreen.classList.remove('hidden');
+
+                currentQuestionIndex = 0;
+                score = 0;
+                showQuestion();
+
+            } catch (error) {
+                console.error(error);
+                alert("Oops! The AI engine timed out or couldn't fetch questions for that topic. Make sure your server is running.");
+            } finally {
+                // Reset button state
+                startBtn.innerText = "Generate & Start Quiz";
+                startBtn.disabled = false;
+            }
+        }
+
+        function showQuestion() {
+            nextBtn.classList.add('hidden');
+            resetTimer();
+
+            const currentQuestion = currentQuestions[currentQuestionIndex];
+            progressText.innerText = `Question ${currentQuestionIndex + 1} of ${currentQuestions.length}`;
+            questionText.innerText = currentQuestion.q;
+            optionsContainer.innerHTML = '';
+
+            currentQuestion.o.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.innerText = option;
+                button.classList.add('option-btn');
+                button.addEventListener('click', () => selectOption(button, index));
+                optionsContainer.appendChild(button);
+            });
+
+            startTimer();
+        }
+
+        function startTimer() {
+            timeLeft = 15;
+            timerText.innerText = `Time: ${timeLeft}s`;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerText.innerText = `Time: ${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    revealCorrectAnswer(-1); // Force reveal, user ran out of time
+                }
+            }, 1000);
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function selectOption(selectedButton, selectedIndex) {
+            resetTimer();
+            const correctAnswerIndex = currentQuestions[currentQuestionIndex].a;
+            
+            if (selectedIndex === correctAnswerIndex) {
+                selectedButton.classList.add('correct');
+                score++;
+            } else {
+                selectedButton.classList.add('wrong');
+                revealCorrectAnswer(correctAnswerIndex);
+            }
+
+            disableOptionButtons();
+            nextBtn.classList.remove('hidden');
+        }
+
+        function revealCorrectAnswer(correctIndex) {
+            const buttons = optionsContainer.querySelectorAll('.option-btn');
+            buttons.forEach((btn, idx) => {
+                if (idx === currentQuestions[currentQuestionIndex].a) {
+                    btn.classList.add('correct');
+                }
+            });
+            disableOptionButtons();
+            nextBtn.classList.remove('hidden');
+        }
+
+        function disableOptionButtons() {
+            const buttons = optionsContainer.querySelectorAll('.option-btn');
+            buttons.forEach(btn => btn.disabled = true);
+        }
+
+        function loadNextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < currentQuestions.length) {
+                showQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            quizScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+
+            resultTopic.innerText = trackingTopic;
+            scoreDisplay.innerText = score;
+
+            if (score === 5) {
+                feedbackMsg.innerText = "Flawless victory! You really know your stuff.";
+            } else if (score >= 3) {
+                feedbackMsg.innerText = "Great job! You have a solid grasp on this topic.";
+            } else {
+                feedbackMsg.innerText = "Good attempt! Practice makes perfect.";
+            }
+        }
+
+        function resetToSetup() {
+            resultsScreen.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+            topicInput.value = "";
+        }
+    </script>
+</body>
+</html>
